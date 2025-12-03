@@ -467,14 +467,14 @@ public sealed partial class Main : Form
         row.Initialize(RunningEnvironment, cfg);
         FLP_Bots.Controls.Add(row);
         FLP_Bots.SetFlowBreak(row, true);
-        row.Click += (s, e) =>
+        row.AddClickHandler(() =>
         {
             var details = cfg.Connection;
             TB_IP.Text = details.IP;
             NUD_Port.Value = details.Port;
             CB_Protocol.SelectedIndex = (int)details.Protocol;
             CB_Routine.SelectedValue = (int)cfg.InitialRoutine;
-        };
+        });
 
         row.Remove += (s, e) =>
         {

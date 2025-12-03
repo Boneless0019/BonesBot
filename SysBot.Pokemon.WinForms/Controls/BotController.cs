@@ -222,6 +222,13 @@ public partial class BotController : UserControl
                 : !bot.IsRunning;
         }
     }
+
+    public void AddClickHandler(Action action)
+    {
+        Click += (_, _) => action();
+        foreach (Control control in Controls)
+            control.Click += (_, _) => action();
+    }
 }
 
 public static class BotControlCommandExtensions
