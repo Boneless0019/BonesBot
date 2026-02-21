@@ -45,10 +45,29 @@ public sealed class SwitchSocketSync(IWirelessConnectionConfig cfg) : SwitchSock
 
     public ulong GetHeapBase()
     {
+<<<<<<< HEAD
         Send(SwitchCommand.GetHeapBase());
         byte[] baseBytes = ReadResponse(8);
         Array.Reverse(baseBytes, 0, 8);
         return BitConverter.ToUInt64(baseBytes, 0);
+=======
+        // give it time to push data back
+        Thread.Sleep((MaximumTransferSize / DelayFactor) + BaseDelay);
+        var size = (length * 2) + 1;
+        var buffer = ArrayPool<byte>.Shared.Rent(size);
+        _ = Read(buffer, size);
+        var mem = buffer.AsMemory(0, size);
+        var result = DecodeResult(mem, length);
+        ArrayPool<byte>.Shared.Return(buffer, true);
+        return result;
+    }
+    private static byte[] DecodeResult(ReadOnlyMemory<byte> buffer, int length)
+    {
+        var result = new byte[length];
+        var span = buffer.Span[..^1]; // Last byte is always a terminator
+        Decoder.LoadHexBytesTo(span, result);
+        return result;
+>>>>>>> 5c388e7 (Initial methods for safe sys-botbase reads)
     }
 
     public ulong GetMainNsoBase()
@@ -86,7 +105,7 @@ public sealed class SwitchSocketSync(IWirelessConnectionConfig cfg) : SwitchSock
     {
         var result = new byte[length];
         var span = buffer.Span[..^1]; // Last byte is always a terminator
-        Decoder.LoadHexBytesTo(span, result, 2);
+        Decoder.LoadHexBytesTo(span, result);
         return result;
     }
 

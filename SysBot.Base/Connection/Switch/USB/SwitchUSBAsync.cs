@@ -157,4 +157,14 @@ public sealed class SwitchUSBAsync(int Port) : SwitchUSB(Port), ISwitchConnectio
     public Task WriteBytesAsync(byte[] data, uint offset, CancellationToken token) => Task.Run(() => Write(Heap, data, offset), token);
 
     public Task WriteBytesMainAsync(byte[] data, ulong offset, CancellationToken token) => Task.Run(() => Write(Main, data, offset), token);
+
+    public Task<(bool Success, T Value)> TryReadMain<T>(ulong offset, CancellationToken token) where T : unmanaged
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<(bool Success, T Value)> TryReadAbsolute<T>(ulong offset, CancellationToken token) where T : unmanaged
+    {
+        throw new NotImplementedException();
+    }
 }

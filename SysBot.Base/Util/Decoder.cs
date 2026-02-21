@@ -7,54 +7,13 @@ namespace SysBot.Base;
 /// </summary>
 public static class Decoder
 {
-    public static byte[] ConvertHexByteStringToBytes(byte[] bytes)
-    {
-        var dest = new byte[bytes.Length / 2];
-        for (int i = 0; i < dest.Length; i++)
-        {
-            int ofs = i * 2;
-            var _0 = (char)bytes[ofs + 0];
-            var _1 = (char)bytes[ofs + 1];
-            dest[i] = DecodeTuple(_0, _1);
-        }
-        return dest;
-    }
+    public static byte[] ConvertHexByteStringToBytes(ReadOnlySpan<byte> bytes) => Convert.FromHexString(bytes);
 
-    public static ReadOnlySpan<byte> ConvertHexByteStringToBytes(ReadOnlySpan<byte> raw)
-    {
-        throw new NotImplementedException();
-    }
-
-    public static void LoadHexBytesTo(ReadOnlySpan<byte> str, Span<byte> dest, int tupleSize)
+    public static void LoadHexBytesTo(ReadOnlySpan<byte> str, Span<byte> dest)
     {
         // The input string is 2-char hex values optionally separated.
         // The destination array should always be larger or equal than the bytes written. Let the runtime bounds check us.
-        // Iterate through the string without allocating.
-        for (int i = 0, j = 0; i < str.Length; i += tupleSize)
-            dest[j++] = DecodeTuple((char)str[i + 0], (char)str[i + 1]);
-    }
-
-    private static byte DecodeTuple(char _0, char _1)
-    {
-        byte result;
-        if (IsNum(_0))
-            result = (byte)((_0 - '0') << 4);
-        else if (IsHexUpper(_0))
-            result = (byte)((_0 - 'A' + 10) << 4);
-        else if (IsHexLower(_0))
-            result = (byte)((_0 - 'a' + 10) << 4);
-        else
-            throw new ArgumentOutOfRangeException(nameof(_0));
-
-        if (IsNum(_1))
-            result |= (byte)(_1 - '0');
-        else if (IsHexUpper(_1))
-            result |= (byte)(_1 - 'A' + 10);
-        else if (IsHexLower(_1))
-            result |= (byte)(_1 - 'a' + 10);
-        else
-            throw new ArgumentOutOfRangeException(nameof(_1));
-        return result;
+        Convert.FromHexString(str, dest, out _, out _);
     }
 
     private static bool IsHexLower(char c) => (uint)(c - 'a') <= 5;

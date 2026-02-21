@@ -46,4 +46,6 @@ public interface ISwitchConnectionAsync : IConsoleConnectionAsync
     Task WriteBytesAbsoluteAsync(byte[] data, ulong offset, CancellationToken token);
 
     Task WriteBytesMainAsync(byte[] data, ulong offset, CancellationToken token);
+    Task<(bool Success, T Value)> TryReadMain<T>(ulong offset, CancellationToken token) where T : unmanaged;
+    Task<(bool Success, T Value)> TryReadAbsolute<T>(ulong offset, CancellationToken token) where T : unmanaged;
 }
