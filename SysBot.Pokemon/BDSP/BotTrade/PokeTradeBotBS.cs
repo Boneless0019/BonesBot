@@ -454,13 +454,22 @@ public class PokeTradeBotBS : PokeRoutineExecutor8BS, ICountBot, ITradeBot, IDis
 
         await Click(A, 1_000, token).ConfigureAwait(false); // Would you like to enter? Screen
 
-        Log("Selecting Link Code room.");
-        TradeProgressChanged?.Invoke(14);
+        var noCodeDist = tradeType == PokeTradeType.Random && Hub.Config.Distribution.NoCodeDistribution;
 
+        if (noCodeDist)
+        {
+            Log("No-code distribution: selecting Yes (open room).");
+            // Option 1 is already highlighted — just confirm.
+        }
+        else
+        {
+            Log("Selecting Link Code room.");
+            TradeProgressChanged?.Invoke(14);
 
-        // Link code selection index
-        await Click(DDOWN, 0_200, token).ConfigureAwait(false);
-        await Click(DDOWN, 0_200, token).ConfigureAwait(false);
+            // Navigate down to option 3: "Yes with a link code"
+            await Click(DDOWN, 0_200, token).ConfigureAwait(false);
+            await Click(DDOWN, 0_200, token).ConfigureAwait(false);
+        }
 
         Log("Connecting to internet.");
         TradeProgressChanged?.Invoke(21);
@@ -494,19 +503,22 @@ public class PokeTradeBotBS : PokeRoutineExecutor8BS, ICountBot, ITradeBot, IDis
         await Click(A, 0_050, token).ConfigureAwait(false);
         await PressAndHold(A, 6_500, 0, token).ConfigureAwait(false);
 
-        if (tradeType != PokeTradeType.Random)
-            Hub.Config.Stream.StartEnterCode(this);
-        Log($"Entering Link Trade code: {tradeCode:0000 0000}...");
-        TradeProgressChanged?.Invoke(35);
+        if (!noCodeDist)
+        {
+            if (tradeType != PokeTradeType.Random)
+                Hub.Config.Stream.StartEnterCode(this);
+            Log($"Entering Link Trade code: {tradeCode:0000 0000}...");
+            TradeProgressChanged?.Invoke(35);
 
-        await EnterLinkCode(tradeCode, Hub.Config, token).ConfigureAwait(false);
+            await EnterLinkCode(tradeCode, Hub.Config, token).ConfigureAwait(false);
 
-        // Wait for Barrier to trigger all bots simultaneously.
-        WaitAtBarrierIfApplicable(token);
-        if (token.IsCancellationRequested) return false;
+            // Wait for Barrier to trigger all bots simultaneously.
+            WaitAtBarrierIfApplicable(token);
+            if (token.IsCancellationRequested) return false;
 
-        await Click(PLUS, 0_600, token).ConfigureAwait(false);
-        Hub.Config.Stream.EndEnterCode(this);
+            await Click(PLUS, 0_600, token).ConfigureAwait(false);
+            Hub.Config.Stream.EndEnterCode(this);
+        }
         Log("Entering the Union Room.");
         TradeProgressChanged?.Invoke(42);
 

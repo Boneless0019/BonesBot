@@ -4,6 +4,7 @@ using SysBot.Base;
 using SysBot.Base.Util;
 using SysBot.Pokemon.Helpers;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -482,7 +483,19 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
             var (detail, priority) = GetTradeData(type);
             if (detail is null)
             {
-                await WaitForQueueStep(waitCounter++, token).ConfigureAwait(false);
+                // FORK ADDITION: When SurpriseTradeWhileIdle is enabled and the distribution pool
+                // has Pokémon, do one Surprise Trade cycle instead of idling. The outer while loop
+                // checks the queue again immediately after, so a queued trade will be picked up
+                // as soon as it arrives.
+                if (Hub.Config.Distribution.SurpriseTradeWhileIdle && Hub.Ledy.Pool.Count > 0)
+                {
+                    var pkm = Hub.Ledy.Pool.GetRandomSurprise();
+                    _ = await PerformSurpriseTradeSV(sav, pkm, token).ConfigureAwait(false);
+                }
+                else
+                {
+                    await WaitForQueueStep(waitCounter++, token).ConfigureAwait(false);
+                }
                 continue;
             }
             waitCounter = 0;
@@ -879,6 +892,190 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
         ConnectionSuccess?.Invoke(this, EventArgs.Empty);
     }
 
+    // FORK ADDITION: Surprise Trade while idle (SV).
+    // Injects a Pokémon from the distribution pool into Box 1 Slot 1, navigates to Poké Portal →
+    // Surprise Trade, submits the Pokémon, then polls for the trade to complete.
+    //
+    // NOTE on trade-completion detection: In SV the portal status byte (PortalBoxStatusPointer)
+    // reads 0x14 while in box/trade views and 0x10 while in the Poké Portal. After submitting to
+    // Surprise Trade the game should remain at 0x10 (portal "searching" screen). When a partner
+    // is matched and the trade executes, the status briefly transitions to 0x14, then back to
+    // 0x10 once the received Pokémon screen is dismissed. We watch for that 0x14 transition.
+    // If that assumption turns out to be wrong (e.g., the game instead returns to 0x11 overworld
+    // while searching), the timeout branch will fire, the log will say so, and the description
+    // comment can be updated accordingly.
+    private async Task<PokeTradeResult> PerformSurpriseTradeSV(SAV9SV sav, PK9 pkm, CancellationToken token)
+    {
+        Log($"Starting SV Surprise Trade. Setting up Pokémon: {pkm.FileName}");
+        await SetBoxPokemonAbsolute(BoxStartOffset, pkm, token, sav).ConfigureAwait(false);
+
+        // Ensure we're on the overworld before entering the portal.
+        if (StartFromOverworld && !await IsOnOverworld(OverworldOffset, token).ConfigureAwait(false))
+            await RecoverToOverworld(token).ConfigureAwait(false);
+
+        if (!await ConnectAndEnterPortalForSurpriseTrade(token).ConfigureAwait(false))
+        {
+            await RecoverToOverworld(token).ConfigureAwait(false);
+            StartFromOverworld = true;
+            return PokeTradeResult.RecoverStart;
+        }
+
+        // Cursor is positioned at Surprise Trade — enter it.
+        Log("Entering Surprise Trade.");
+        await Click(A, 2_000, token).ConfigureAwait(false);
+
+        if (token.IsCancellationRequested)
+            return PokeTradeResult.RoutineCancel;
+
+        // Wait for the Pokémon selection box to open (0x14).
+        var cnt = 0;
+        while (!await IsInBox(PortalOffset, token).ConfigureAwait(false))
+        {
+            await Task.Delay(0_500, token).ConfigureAwait(false);
+            if (++cnt > 20)
+            {
+                Log("Failed to open Pokémon selection for Surprise Trade.");
+                await RecoverToOverworld(token).ConfigureAwait(false);
+                StartFromOverworld = true;
+                return PokeTradeResult.RecoverStart;
+            }
+        }
+        await Task.Delay(1_000 + Hub.Config.Timings.ExtraTimeOpenBox, token).ConfigureAwait(false);
+
+        // Select Box 1 Slot 1 (cursor starts there by default).
+        Log("Selecting Pokémon (Box 1 Slot 1).");
+        await Click(A, 0_700, token).ConfigureAwait(false);
+
+        if (token.IsCancellationRequested)
+            return PokeTradeResult.RoutineCancel;
+
+        // Press A through confirmation dialogs until we leave the box view.
+        Log("Confirming Surprise Trade submission...");
+        cnt = 0;
+        while (await IsInBox(PortalOffset, token).ConfigureAwait(false))
+        {
+            await Click(A, 0_800, token).ConfigureAwait(false);
+            if (++cnt > 20)
+            {
+                Log("Could not confirm Surprise Trade. Recovering...");
+                await RecoverToOverworld(token).ConfigureAwait(false);
+                StartFromOverworld = true;
+                return PokeTradeResult.RecoverStart;
+            }
+        }
+
+        // Pokémon submitted — now searching for a partner.
+        await Task.Delay(2_000, token).ConfigureAwait(false);
+        Log("Waiting for Surprise Trade partner...");
+
+        var waitMs = Hub.Config.Trade.TradeWaitTime * 1_000;
+        var waited = 0;
+        const int pollInterval = 500;
+        while (waited < waitMs)
+        {
+            if (token.IsCancellationRequested)
+                return PokeTradeResult.RoutineCancel;
+
+            // Detect trade completion: portal status goes to 0x14 when the trade executes.
+            if (await IsInBox(PortalOffset, token).ConfigureAwait(false))
+            {
+                Log("Trade partner found! Trade in progress...");
+                // Wait for the trade animation to finish (leave 0x14).
+                cnt = 0;
+                while (await IsInBox(PortalOffset, token).ConfigureAwait(false))
+                {
+                    await Task.Delay(0_500, token).ConfigureAwait(false);
+                    if (++cnt > 60) break; // 30-second safety cap
+                }
+                await Task.Delay(3_000, token).ConfigureAwait(false);
+                TradeSettings.AddCompletedSurprise();
+                Log("Surprise Trade complete!");
+                StartFromOverworld = true;
+                return PokeTradeResult.Success;
+            }
+
+            // If we've left the portal entirely (e.g., overworld = 0x11), log and recover.
+            if (!await IsInPokePortal(PortalOffset, token).ConfigureAwait(false))
+            {
+                var onOw = await IsOnOverworld(OverworldOffset, token).ConfigureAwait(false);
+                Log($"Left Poké Portal unexpectedly while waiting for Surprise Trade (overworld={onOw}). Recovering.");
+                StartFromOverworld = true;
+                return PokeTradeResult.NoTrainerFound;
+            }
+
+            await Task.Delay(pollInterval, token).ConfigureAwait(false);
+            waited += pollInterval;
+        }
+
+        // Timed out — cancel the search and recover.
+        Log("Surprise Trade timed out. No partner found within the wait period.");
+        await Click(B, 1_000, token).ConfigureAwait(false);
+        await Click(B, 1_000, token).ConfigureAwait(false);
+        await RecoverToOverworld(token).ConfigureAwait(false);
+        StartFromOverworld = true;
+        return PokeTradeResult.NoTrainerFound;
+    }
+
+    // Opens the Poké Portal and positions the cursor at Surprise Trade (1 DDOWN from top,
+    // versus the normal 2 DDowns used for Link Trade).
+    private async Task<bool> ConnectAndEnterPortalForSurpriseTrade(CancellationToken token)
+    {
+        if (!await IsOnOverworld(OverworldOffset, token).ConfigureAwait(false))
+            await RecoverToOverworld(token).ConfigureAwait(false);
+
+        Log("Opening the Poké Portal for Surprise Trade.");
+        await Click(X, 1_000, token).ConfigureAwait(false);
+
+        if (await SwitchConnection.IsProgramRunning(LibAppletWeID, token).ConfigureAwait(false))
+        {
+            Log("News detected, will close once it's loaded!");
+            await Task.Delay(5_000, token).ConfigureAwait(false);
+            await Click(B, 2_000, token).ConfigureAwait(false);
+        }
+
+        // Navigate to Poké Portal in the X menu (same as ConnectAndEnterPortal).
+        await Click(DRIGHT, 0_300, token).ConfigureAwait(false);
+        await PressAndHold(DDOWN, 1_000, 1_000, token).ConfigureAwait(false);
+        await Click(DUP, 0_200, token).ConfigureAwait(false);
+        await Click(DUP, 0_200, token).ConfigureAwait(false);
+        await Click(DUP, 0_200, token).ConfigureAwait(false);
+        await Click(A, 1_000, token).ConfigureAwait(false);
+
+        // Wait for portal to load.
+        var attempts = 0;
+        while (!await IsInPokePortal(PortalOffset, token).ConfigureAwait(false))
+        {
+            await Task.Delay(0_500, token).ConfigureAwait(false);
+            if (++attempts > 20)
+            {
+                Log("Failed to load the Poké Portal.");
+                return false;
+            }
+        }
+        await Task.Delay(2_000 + Hub.Config.Timings.ExtraTimeLoadPortal, token).ConfigureAwait(false);
+
+        if (!await ConnectToOnline(Hub.Config, token).ConfigureAwait(false))
+        {
+            Log("Failed to connect to online.");
+            return false;
+        }
+
+        if (await SwitchConnection.IsProgramRunning(LibAppletWeID, token).ConfigureAwait(false))
+        {
+            Log("News detected, will close once it's loaded!");
+            await Task.Delay(5_000, token).ConfigureAwait(false);
+            await Click(B, 2_000 + Hub.Config.Timings.ExtraTimeLoadPortal, token).ConfigureAwait(false);
+        }
+
+        // Portal menu order (top to bottom): Mystery Gift → Surprise Trade → Link Trade → ...
+        // Move down once to land on Surprise Trade.
+        Log("Adjusting cursor to Surprise Trade.");
+        await Click(DDOWN, 0_300, token).ConfigureAwait(false);
+        StartFromOverworld = false;
+        return true;
+    }
+
+    protected virtual (PokeTradeDetail<PK9>? detail, uint priority) GetTradeData(PokeRoutineType type)
     private async Task<PokeTradeResult> PerformBatchTrade(SAV9SV sav, PokeTradeDetail<PK9> poke, CancellationToken token)
     {
         int completedTrades = 0;
@@ -1701,12 +1898,10 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
             return true;
 
         Log("Attempting to recover to overworld.");
-
-        var attempts = 0;
+        var sw = Stopwatch.StartNew();
         while (!await IsOnOverworld(OverworldOffset, token).ConfigureAwait(false))
         {
-            attempts++;
-            if (attempts >= 30)
+            if (sw.Elapsed.TotalMinutes >= 2)
                 break;
 
             await Click(B, 1_000, token).ConfigureAwait(false);
@@ -1724,8 +1919,7 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
         // We didn't make it for some reason.
         if (!await IsOnOverworld(OverworldOffset, token).ConfigureAwait(false))
         {
-            Log("Failed to recover to overworld, rebooting the game.");
-
+            Log("Failed to recover to overworld after 2 minutes, rebooting the game.");
             await RestartGameSV(token).ConfigureAwait(false);
         }
         await Task.Delay(1_000, token).ConfigureAwait(false);

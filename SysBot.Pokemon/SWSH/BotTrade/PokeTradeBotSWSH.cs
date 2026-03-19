@@ -158,7 +158,20 @@ public class PokeTradeBotSWSH(PokeTradeHub<PK8> hub, PokeBotState config) : Poke
             var (detail, priority) = GetTradeData(type);
             if (detail is null)
             {
-                await WaitForQueueStep(waitCounter++, token).ConfigureAwait(false);
+                // FORK ADDITION: When SurpriseTradeWhileIdle is enabled and the distribution pool
+                // has Pokémon, do one Surprise Trade cycle instead of idling. The outer while loop
+                // will check the queue again immediately after, so a real trade request will be
+                // picked up as soon as it arrives.
+                if (hub.Config.Distribution.SurpriseTradeWhileIdle && hub.Ledy.Pool.Count > 0)
+                {
+                    var pkm = hub.Ledy.Pool.GetRandomSurprise();
+                    await EnsureConnectedToYComm(OverworldOffset, hub.Config, token).ConfigureAwait(false);
+                    _ = await PerformSurpriseTrade(sav, pkm, token).ConfigureAwait(false);
+                }
+                else
+                {
+                    await WaitForQueueStep(waitCounter++, token).ConfigureAwait(false);
+                }
                 continue;
             }
             waitCounter = 0;

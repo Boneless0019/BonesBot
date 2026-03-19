@@ -322,6 +322,9 @@ public class PokeTradeBotLGPE(PokeTradeHub<PB7> Hub, PokeBotState Config) : Poke
         await Click(A, 10000, token).ConfigureAwait(false);
 
         await Click(A, 1000, token).ConfigureAwait(false);
+        var noCodeDist = poke.Type == PokeTradeType.Random && Hub.Config.Distribution.NoCodeDistribution;
+        if (noCodeDist)
+            Log("No-code distribution: selecting 3 Pikachu stamps.");
         await EnterLinkCodeLG(poke, token);
         poke.TradeSearching(this);
         Log($"Searching for user {poke.Trainer.TrainerName}");

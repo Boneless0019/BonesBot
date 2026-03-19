@@ -22,6 +22,14 @@ public class DistributionSettings : ISynchronizationSetting
     [Category(Distribute), Description("Distribution Trade Link Code uses the Min and Max range rather than the fixed trade code."), DisplayName("Random Code")]
     public bool RandomCode { get; set; }
 
+    [Category(Distribute), Description("When enabled, distribution trades will search without entering any link code (open trade). Overrides TradeCode and RandomCode for distribution trades."), DisplayName("No-Code Distribution")]
+    public bool NoCodeDistribution { get; set; }
+
+    // FORK ADDITION: When the link trade queue is empty, the SWSH/SV bot will do Surprise Trades
+    // from the distribution pool instead of sitting idle. Stops as soon as a real trade arrives.
+    [Category(Distribute), Description("SWSH/SV: When the link trade queue is empty, do Surprise Trades from the distribution pool instead of waiting. Stops automatically when a queued trade arrives."), DisplayName("Surprise Trade While Idle")]
+    public bool SurpriseTradeWhileIdle { get; set; }
+
     [Category(Distribute), Description("For BDSP, the distribution bot will go to a specific room and remain there until the bot is stopped."), DisplayName("Remain in Union Room")]
     public bool RemainInUnionRoomBDSP { get; set; } = true;
 

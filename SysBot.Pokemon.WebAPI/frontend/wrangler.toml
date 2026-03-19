@@ -1,0 +1,8 @@
+name = "sysbot-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Set your SysBot WebAPI URL as a secret:
+#   wrangler secret put SYSBOT_URL
+# Then deploy with:
+#   wrangler deploy
