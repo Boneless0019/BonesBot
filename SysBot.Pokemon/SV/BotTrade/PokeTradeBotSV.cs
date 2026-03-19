@@ -1546,6 +1546,7 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
         if (noCodeDist)
         {
             Log("No-code distribution: searching without a link code.");
+            await Click(X, 1_000, token).ConfigureAwait(false);
             await Click(A, 0_500, token).ConfigureAwait(false);
             return true;
         }
