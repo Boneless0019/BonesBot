@@ -727,32 +727,42 @@ public class PokeTradeBotSWSH(PokeTradeHub<PK8> hub, PokeBotState config) : Poke
 
         await Click(A, 1_500, token).ConfigureAwait(false);
 
-        Log("Selecting Link Trade code.");
+        var noCodeDist = poke.Type == PokeTradeType.Random && hub.Config.Distribution.NoCodeDistribution;
 
-        await Click(DDOWN, 500, token).ConfigureAwait(false);
-
-        for (int i = 0; i < 2; i++)
+        if (noCodeDist)
+        {
+            Log("No-code distribution: selecting open trade (Anyone).");
             await Click(A, 1_500, token).ConfigureAwait(false);
+        }
+        else
+        {
+            Log("Selecting Link Trade code.");
 
-        // All other languages require an extra A press at this menu.
-        if (GameLang != LanguageID.English && GameLang != LanguageID.Spanish)
-            await Click(A, 1_500, token).ConfigureAwait(false);
+            await Click(DDOWN, 500, token).ConfigureAwait(false);
 
-        // Loading Screen
-        if (poke.Type != PokeTradeType.Random)
-            hub.Config.Stream.StartEnterCode(this);
-        await Task.Delay(hub.Config.Timings.ExtraTimeOpenCodeEntry, token).ConfigureAwait(false);
+            for (int i = 0; i < 2; i++)
+                await Click(A, 1_500, token).ConfigureAwait(false);
 
-        var code = poke.Code;
-        Log($"Entering Link Trade code: {code:0000 0000}...");
+            // All other languages require an extra A press at this menu.
+            if (GameLang != LanguageID.English && GameLang != LanguageID.Spanish)
+                await Click(A, 1_500, token).ConfigureAwait(false);
 
-        await EnterLinkCode(code, hub.Config, token).ConfigureAwait(false);
+            // Loading Screen
+            if (poke.Type != PokeTradeType.Random)
+                hub.Config.Stream.StartEnterCode(this);
+            await Task.Delay(hub.Config.Timings.ExtraTimeOpenCodeEntry, token).ConfigureAwait(false);
 
-        // Wait for Barrier to trigger all bots simultaneously.
-        WaitAtBarrierIfApplicable(token);
-        await Click(PLUS, 1_000, token).ConfigureAwait(false);
+            var code = poke.Code;
+            Log($"Entering Link Trade code: {code:0000 0000}...");
 
-        hub.Config.Stream.EndEnterCode(this);
+            await EnterLinkCode(code, hub.Config, token).ConfigureAwait(false);
+
+            // Wait for Barrier to trigger all bots simultaneously.
+            WaitAtBarrierIfApplicable(token);
+            await Click(PLUS, 1_000, token).ConfigureAwait(false);
+
+            hub.Config.Stream.EndEnterCode(this);
+        }
 
         // Confirming and return to overworld.
         var delay_count = 0;

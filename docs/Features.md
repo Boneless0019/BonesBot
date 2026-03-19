@@ -27,9 +27,11 @@ Or in `config.json`:
 
 | Game | Behavior |
 |---|---|
+| **SV** | After clearing the code with X, confirms immediately with PLUS (skips keyboard entry). The Poké Portal search starts with no link code restriction — any player searching open will match. |
+| **SWSH** | Skips the DDOWN press that selects "Link Code" — stays on the "Anyone" option instead. Selects "Anyone" with A, which starts an open trade search with no code required. |
 | **BDSP** | Skips the DDOWN presses that select "Link Code" room — goes directly into the open room. Skips code entry entirely. |
 | **LGPE** | Logs "No-code distribution: selecting 3 Pikachu stamps" — the open-room equivalent in LGPE uses 3 Pikachu stamps as the link code. This is the default open-trade behavior in LGPE anyway, so this option primarily removes confusion from the logs. |
-| **SV / SWSH / LA / PLZA** | Not applicable — only affects BDSP and LGPE distribution bots. |
+| **LA / PLZA** | Not applicable — no link code distribution in these games. |
 
 ### Notes
 

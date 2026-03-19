@@ -1536,12 +1536,22 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
 
     private async Task<bool> EnterLinkTradeAndCode(PokeTradeDetail<PK9> poke, int code, CancellationToken token)
     {
+        var noCodeDist = poke.Type == PokeTradeType.Random && Hub.Config.Distribution.NoCodeDistribution;
+
         // Assumes we're freshly in the Portal and the cursor is over Link Trade.
         Log("Selecting Link Trade.");
         TradeProgressChanged?.Invoke(24);
         await Click(A, 1_500, token).ConfigureAwait(false);
         // Always clear Link Codes and enter a new one based on the current trade type
         await Click(X, 1_000, token).ConfigureAwait(false);
+
+        if (noCodeDist)
+        {
+            Log("No-code distribution: searching without a link code.");
+            await Click(PLUS, 3_000, token).ConfigureAwait(false);
+            return true;
+        }
+
         await Click(PLUS, 1_000, token).ConfigureAwait(false);
         // Loading code entry
         bool startedEnterCode = false;
