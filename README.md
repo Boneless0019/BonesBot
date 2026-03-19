@@ -1,11 +1,13 @@
-# CrabBot
+# BonesBot
 ![License](https://img.shields.io/badge/License-AGPLv3-blue.svg)
+
+BonesBot is a fork of [CrabBot](https://github.com/kwsch/SysBot.NET) with four additional features: a **Web Trade Portal**, **Reddit Integration**, **No-Code Distribution**, and **Surprise Trade While Idle**. All base bot logic is identical to CrabBot and future updates can be pulled in with a standard `git merge`.
 
 ## Support Discord:
 
-For support on setting up your own instance of CrabBot, feel free to join the discord! Note: this bot is a fork of the original Sysbot.NET, don't bother the devs at PKHEX Development Project for support. 
+For support on setting up your own instance of BonesBot, feel free to join the discord! Note: this bot is a fork of the original Sysbot.NET, don't bother the devs at PKHEX Development Project for support.
 
-[<img src="https://canary.discordapp.com/api/guilds/1375740071843598466/widget.png?style=banner2">](https://discord.gg/FnAGV4pb2k)
+[<img src="https://canary.discordapp.com/api/guilds/1375740071843598466/widget.png?style=banner2">](https://discord.gg/F73BTKV5fP)
 
 [sys-botbase](https://github.com/olliz0r/sys-botbase) client for remote control automation of Nintendo Switch consoles.
 
@@ -37,6 +39,28 @@ For support on setting up your own instance of CrabBot, feel free to join the di
 - Provide a YouTube login ClientID, ClientSecret, and ChannelID for login.
 
 Uses [Discord.Net](https://github.com/discord-net/Discord.Net) , [TwitchLib](https://github.com/TwitchLib/TwitchLib) and [StreamingClientLibary](https://github.com/SaviorXTanren/StreamingClientLibrary) as a dependency via Nuget.
+
+## SysBot.Pokemon.WebAPI:
+- HTTP API server (ASP.NET, port 5000 by default) that lets users request trades from a browser without Discord.
+- Includes a browser-based trade portal frontend (`frontend/index.html`) and an optional Cloudflare Worker CORS proxy.
+- Supports Showdown Set trades, a Pokémon catalog (pre-made PKM files the host puts in a `pokemon-catalog/` folder), member key authentication, and live queue status polling.
+- See the [Web Trade Portal wiki](docs/WebAPI.md) for full setup instructions and the complete API reference.
+
+## SysBot.Pokemon.Reddit:
+- Connects the bot to a Reddit account and polls both the inbox (DMs) and configured megathread posts for commands.
+- Supports `!help`, `!check` (legality check without trading), and `!trade` (queues a Showdown Set trade).
+- Includes a dry-run mode for safe testing without making any real Reddit API calls.
+- See the [Reddit Integration wiki](docs/Reddit.md) for full setup instructions and all configuration options.
+
+## BonesBot Feature: No-Code Distribution:
+- When enabled in Distribution Settings, distribution (random) trades open a room without entering any link code so users can join without entering a code on their end.
+- Supported in BDSP and LGPE. BDSP skips code entry entirely; LGPE defaults to 3 Pikachu stamps (the open-room equivalent on Switch Lite hardware).
+- See the [Features wiki](docs/Features.md) for details.
+
+## BonesBot Feature: Surprise Trade While Idle:
+- When the link trade queue is empty, SWSH and SV bots will automatically send out Pokémon via Surprise Trade from the distribution pool instead of sitting idle.
+- Stops and returns to normal link trading as soon as a real queued trade arrives.
+- See the [Features wiki](docs/Features.md) for details.
 
 ## Other Dependencies
 Pokémon API logic is provided by [PKHeX](https://github.com/kwsch/PKHeX/), and template generation is provided by [Auto-Legality Mod](https://github.com/architdate/PKHeX-Plugins/). Current template generation uses [@santacrab2](https://www.github.com/santacrab2)'s [Auto-Legality Mod fork](https://github.com/santacrab2/PKHeX-Plugins).

@@ -293,7 +293,7 @@ namespace SysBot.Pokemon.Reddit
         {
             await ThrottleAsync(ct).ConfigureAwait(false);
             if (isDm)
-                await _api.SendDmAsync(username, "CrabBot", msg, ct).ConfigureAwait(false);
+                await _api.SendDmAsync(username, _cfg.Username, msg, ct).ConfigureAwait(false);
             else
                 await _api.ReplyCommentAsync(replyFullname, msg, ct).ConfigureAwait(false);
         }

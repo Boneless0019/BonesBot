@@ -56,10 +56,10 @@ namespace SysBot.Pokemon.Reddit
 
         /// <summary>
         /// User-Agent header sent to Reddit.  Reddit requires a unique
-        /// descriptive UA string.  Example: "CrabBot/1.0 by u/YourUser".
+        /// descriptive UA string.  Example: "SysBot/1.0 by u/YourBotAccount".
         /// </summary>
-        [Category(Operation), Description("User-Agent (required by Reddit). Example: CrabBot/1.0 by u/YourUser")]
-        public string UserAgent { get; set; } = "CrabBot/1.0 by u/CrabBot";
+        [Category(Operation), Description("User-Agent (required by Reddit). Example: SysBot/1.0 by u/YourBotAccount")]
+        public string UserAgent { get; set; } = "SysBot/1.0 by u/YourBotAccount";
 
         /// <summary>
         /// Command prefix used in Reddit commands.  Defaults to '!'.
@@ -115,7 +115,7 @@ namespace SysBot.Pokemon.Reddit
         /// Footer text appended to confirmations and error messages.
         /// </summary>
         [Category(Operation), Description("Footer appended to confirmations.")]
-        public string Footer { get; set; } = "\n\n**Didn't get in?** Join our Discord: https://bidoof.net";
+        public string Footer { get; set; } = "\n\n**Didn't get in?** Join our Discord!";
 
         /// <summary>
         /// Minimum number of seconds between sending replies or actions to
