@@ -1542,16 +1542,15 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
         Log("Selecting Link Trade.");
         TradeProgressChanged?.Invoke(24);
         await Click(A, 1_500, token).ConfigureAwait(false);
-        // Always clear Link Codes and enter a new one based on the current trade type
-        await Click(X, 1_000, token).ConfigureAwait(false);
-
+        // Make sure we clear any Link Codes if we're not in no-code distribution mode.
         if (noCodeDist)
         {
             Log("No-code distribution: searching without a link code.");
-            await Click(PLUS, 3_000, token).ConfigureAwait(false);
+            await Click(A, 0_500, token).ConfigureAwait(false);
             return true;
         }
 
+        await Click(X, 1_000, token).ConfigureAwait(false);
         await Click(PLUS, 1_000, token).ConfigureAwait(false);
         // Loading code entry
         bool startedEnterCode = false;
