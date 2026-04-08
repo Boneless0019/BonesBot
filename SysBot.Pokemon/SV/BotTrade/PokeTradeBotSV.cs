@@ -908,6 +908,8 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
     {
         Log($"Starting SV Surprise Trade. Setting up Pokémon: {pkm.FileName}");
         await SetBoxPokemonAbsolute(BoxStartOffset, pkm, token, sav).ConfigureAwait(false);
+        // Remember the PID of what we submitted so we can detect when the trade completes from overworld.
+        var submittedPID = pkm.PID;
 
         // Ensure we're on the overworld before entering the portal.
         if (StartFromOverworld && !await IsOnOverworld(OverworldOffset, token).ConfigureAwait(false))
@@ -994,11 +996,29 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
                 return PokeTradeResult.Success;
             }
 
-            // If we've left the portal entirely (e.g., overworld = 0x11), log and recover.
+            // SV returns you to the overworld after submitting a Surprise Trade — this is normal.
+            // While in the overworld, poll Box 1 Slot 1: when the PID changes the trade happened.
             if (!await IsInPokePortal(PortalOffset, token).ConfigureAwait(false))
             {
-                var onOw = await IsOnOverworld(OverworldOffset, token).ConfigureAwait(false);
-                Log($"Left Poké Portal unexpectedly while waiting for Surprise Trade (overworld={onOw}). Recovering.");
+                if (await IsOnOverworld(OverworldOffset, token).ConfigureAwait(false))
+                {
+                    var current = await ReadPokemon(BoxStartOffset, BoxFormatSlotSize, token).ConfigureAwait(false);
+                    if (current.PID != submittedPID)
+                    {
+                        // Box 1 Slot 1 changed — the trade completed while we were in the overworld.
+                        await Task.Delay(3_000, token).ConfigureAwait(false);
+                        TradeSettings.AddCompletedSurprise();
+                        Log("Surprise Trade complete! (completed from overworld)");
+                        StartFromOverworld = true;
+                        return PokeTradeResult.Success;
+                    }
+                    // Still waiting in the overworld — keep polling.
+                    await Task.Delay(pollInterval, token).ConfigureAwait(false);
+                    waited += pollInterval;
+                    continue;
+                }
+                // Left to somewhere unexpected (not portal, not overworld).
+                Log("Left Poké Portal unexpectedly while waiting for Surprise Trade. Recovering.");
                 StartFromOverworld = true;
                 return PokeTradeResult.NoTrainerFound;
             }
@@ -1068,8 +1088,12 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
         }
 
         // Portal menu order (top to bottom): Mystery Gift → Surprise Trade → Link Trade → ...
-        // Move down once to land on Surprise Trade.
+        // Reset cursor to top first in case the game left it on Surprise Trade from last time,
+        // then move down once to land on Surprise Trade.
         Log("Adjusting cursor to Surprise Trade.");
+        for (int i = 0; i < 5; i++)
+            await Click(DUP, 0_200, token).ConfigureAwait(false);
+        await Task.Delay(0_300, token).ConfigureAwait(false);
         await Click(DDOWN, 0_300, token).ConfigureAwait(false);
         StartFromOverworld = false;
         return true;
@@ -2004,7 +2028,13 @@ public class PokeTradeBotSV(PokeTradeHub<PK9> Hub, PokeBotState Config) : PokeRo
 
         Log("Adjusting the cursor in the Portal.");
 
-        // Move down to Link Trade.
+        // Reset cursor to top (Mystery Gift) before navigating — the game may have left
+        // the cursor on Surprise Trade or Link Trade from a previous session.
+        for (int i = 0; i < 5; i++)
+            await Click(DUP, 0_200, token).ConfigureAwait(false);
+        await Task.Delay(0_300, token).ConfigureAwait(false);
+
+        // Move down to Link Trade (Mystery Gift → Surprise Trade → Link Trade).
         await Click(DDOWN, 0_300, token).ConfigureAwait(false);
         await Click(DDOWN, 0_300, token).ConfigureAwait(false);
         return true;
